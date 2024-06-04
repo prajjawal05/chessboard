@@ -1,7 +1,7 @@
 import { useState } from "react";
 import styled from "styled-components";
 
-// I am not very good with CSS so I have to google about it.
+// I am not very good with CSS so I had to google about it.
 // I am sorry I forgot about CSS in our call.
 
 const Container = styled.div`
@@ -35,6 +35,9 @@ const StyledSquare = styled.div`
     border: 1px solid #8c6d62;
     cursor: ${({ isEligibile }) => isEligibile ? 'pointer' : 'no-drop'};
     background: ${({ rowIndex, colIndex }) => ((rowIndex + colIndex) % 2 === 1 ? '#e3c19b' : '#a47e56')};
+    :hover {
+        background: ${({ isEligibile }) => isEligibile ? '#66FF99' : '#FF5733'};;
+    }
 `;
 
 const Piece = styled.div`
@@ -214,6 +217,7 @@ const Board = () => {
     let [board, updateBoard] = useState(INITIAL_BOARD);
     const [currentPlayer, updatePlayer] = useState('W');
     const [selectedPiece, updateSelectedPiece] = useState(null);
+    const [check, updateCheck] = useState(null);
 
     const handleClick = (newSelection) => {
         if (newSelection == null) {
@@ -230,12 +234,53 @@ const Board = () => {
             const selectedCol = selectedPiece[1];
             updatedChessBoard[newSelection[0]][newSelection[1]] = updatedChessBoard[selectedRow][selectedCol];
             updatedChessBoard[selectedRow][selectedCol] = 'E';
+
+            const opponent = currentPlayer == 'W' ? 'B' : 'W';
+            let opponentKing = null;
+            let isCheck = false;
+
+            /* checking whether opponent is in check state */
+            for (let i = 0; i < 7; i++) {
+                for (let j = 0; j < 7; j++) {
+                    if (board[i][j] == `${opponent}K`) {
+                        opponentKing = [i, j];
+                    }
+                }
+            }
+
+
+            for (let i = 0; i < 7; i++) {
+                for (let j = 0; j < 7; j++) {
+                    if (board[i][j][0] == currentPlayer && getEligibility(board, opponentKing[0], opponentKing[1], i, j, currentPlayer)) {
+                        isCheck = true;
+                    }
+                }
+            }
+
+            /* checking for checkmate */
+            // for(let i=-1; i<2; i++) {
+            //     for(let j=-1; j<2; j++) {
+            //         let newrowking = opponentKing[0] + i;
+            //         let newcolking = opponentKing[1] + j;
+            //     }
+            // }
+
             // board;
             const rotatedBoard = updatedChessBoard.slice().reverse().map(row => row.slice().reverse());
             updateBoard(rotatedBoard);
             updatePlayer(curr => curr == 'W' ? 'B' : 'W');
             updateSelectedPiece(null);
+            updateCheck(isCheck);
         }
+
+
+    }
+
+    const resetGame = () => {
+        updateBoard(INITIAL_BOARD);
+        updatePlayer('W');
+        updateSelectedPiece(null);
+        updateCheck(null);
     }
 
     return (
@@ -265,6 +310,7 @@ const Board = () => {
                     <p>Selected Piece is {pieceName[board[selectedPiece[0]][selectedPiece[1]][1]]}</p>
                 }
             </TextSection>
+            <button onClick={resetGame}>Reset Game</button>
         </Container>
     )
 }
