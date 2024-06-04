@@ -33,7 +33,7 @@ const StyledSquare = styled.div`
     align-items: center;
     justify-content: center;
     border: 1px solid #8c6d62;
-
+    cursor: ${({ isEligibile }) => isEligibile ? 'pointer' : 'no-drop'};
     background: ${({ rowIndex, colIndex }) => ((rowIndex + colIndex) % 2 === 1 ? '#e3c19b' : '#a47e56')};
 `;
 
@@ -55,16 +55,132 @@ const INITIAL_BOARD = [
     ['WR', 'WH', 'WB', 'WK', 'WQ', 'WB', 'WH', 'WR']
 ];
 
+const getPawnEligibility = (board, rowIndex, colIndex, selectedRow, selectedCol) => {
+    if (selectedRow == 6) {
+        if ((rowIndex == 4 || rowIndex == 5) && colIndex == selectedCol && board[rowIndex][colIndex] == 'E') {
+            return true;
+        }
+        if (board[rowIndex][colIndex] == 'E') {
+            return false;
+        }
+        if (rowIndex == 5 && Math.abs(colIndex - selectedCol) == 1 && board[rowIndex][colIndex][0] != 'E') {
+            return true;
+        }
+    }
+    if (rowIndex == selectedRow - 1 && colIndex == selectedCol && board[rowIndex][colIndex] == 'E') {
+        return true;
+    }
+    if (rowIndex == selectedRow - 1 && Math.abs(colIndex - selectedCol) == 1 && board[rowIndex][colIndex][0] != 'E') {
+        return true;
+    }
+    return false;
+}
 
-const Square = ({ rowIndex, colIndex, cell }) => {
-    const isBlack = (rowIndex + colIndex) % 2 === 1;
-    const className = isBlack ? 'black' : 'white';
-    console.log(cell, cell.startsWith('W'));
+const isPathClear = (board, selectedRow, selectedCol, rowIndex, colIndex) => {
+    const rowStep = Math.sign(rowIndex - selectedRow);
+    const colStep = Math.sign(colIndex - selectedCol);
+    let currentRow = selectedRow + rowStep;
+    let currentCol = selectedCol + colStep;
+
+    while (currentRow !== rowIndex || currentCol !== colIndex) {
+        if (board[currentRow][currentCol] !== 'E') return false;
+        currentRow += rowStep;
+        currentCol += colStep;
+    }
+    return true;
+};
+
+const getRookEligibility = (board, rowIndex, colIndex, selectedRow, selectedCol) => {
+    if (rowIndex != selectedRow && colIndex != selectedCol) return false;
+
+    if (isPathClear(board, selectedRow, selectedCol, rowIndex, colIndex)) {
+        return true;
+    }
+
+    return false;
+}
+
+const getBishopEligibility = (board, rowIndex, colIndex, selectedRow, selectedCol) => {
+    if (Math.abs(rowIndex - selectedRow) !== Math.abs(colIndex - selectedCol)) return false;
+
+    if (isPathClear(board, selectedRow, selectedCol, rowIndex, colIndex)) {
+        return true;
+    }
+
+    return false;
+}
+
+const getKnightEligibility = (board, rowIndex, colIndex, selectedRow, selectedCol) => {
+    const verticalMove = Math.abs(rowIndex - selectedRow);
+    const horizontalMove = Math.abs(colIndex - selectedCol);
+
+    const isLShapeMove = (verticalMove === 2 && horizontalMove === 1) ||
+        (verticalMove === 1 && horizontalMove === 2);
+
+    return isLShapeMove;
+}
+
+const getQueenEligibility = (board, rowIndex, colIndex, selectedRow, selectedCol) => {
+    const isSameRow = rowIndex === selectedRow;
+    const isSameCol = colIndex === selectedCol;
+    const isDiagonal = Math.abs(rowIndex - selectedRow) === Math.abs(colIndex - selectedCol);
+
+    if ((isSameRow || isSameCol || isDiagonal) && isPathClear(board, selectedRow, selectedCol, rowIndex, colIndex))
+        return true;
+
+    return false;
+}
+
+const getKingEligibility = (board, rowIndex, colIndex, selectedRow, selectedCol) => {
+    if (Math.abs(rowIndex - selectedRow) <= 1 && Math.abs(colIndex - selectedCol) <= 1)
+        return true;
+
+    return false;
+}
+
+const pieceEligibility = {
+    'P': getPawnEligibility,
+    'R': getRookEligibility,
+    'B': getBishopEligibility,
+    'H': getKnightEligibility,
+    'K': getKingEligibility,
+    'Q': getQueenEligibility,
+}
+
+
+const getEligibility = (board, rowIndex, colIndex, selectedRow, selectedCol, currentPlayer) => {
+    if (board[rowIndex][colIndex][0] == currentPlayer) return false;
+    return pieceEligibility[board[selectedRow][selectedCol][1]](board, rowIndex, colIndex, selectedRow, selectedCol);
+}
+
+
+const Square = ({ board, currentPlayer, rowIndex, colIndex, selectedRow, selectedCol }) => {
+    const [isEligibile, updatEligibility] = useState(true);
+
+    const currentcell = board[rowIndex][colIndex];
+
+    const handleMouseEnter = () => {
+        if (!selectedRow) {
+            if (board[rowIndex][colIndex][0] == currentPlayer) {
+                updatEligibility(true);
+            } else {
+                updatEligibility(false);
+            }
+            return;
+        }
+        const eligibility = isEligibile(board, rowIndex, colIndex, selectedRow, selectedCol, currentPlayer);
+        updatEligibility(eligibility);
+    }
+
+    const handleMouseLeave = () => {
+        updatEligibility(true);
+    }
+
     return (
-        <StyledSquare key={`${rowIndex} -${colIndex} `} className={className} rowIndex={rowIndex} colIndex={colIndex}>
-            {cell !== 'E' &&
-                <Piece isKing={cell[1] === 'K'} isWhite={cell[0] == ('W')}>
-                    {cell[1]}
+        <StyledSquare isEligibile={isEligibile} key={`${rowIndex} -${colIndex} `} rowIndex={rowIndex} colIndex={colIndex} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+            {currentcell !== 'E' &&
+                <Piece isKing={currentcell[1] === 'K'} isWhite={currentcell[0] == ('W')}>
+                    {currentcell[1]}
                 </Piece>
             }
         </StyledSquare >
@@ -84,7 +200,7 @@ const Board = () => {
                 {board.map((row, rowIndex) => {
                     return row.map((cell, colIndex) => {
                         return (
-                            <Square cell={cell} rowIndex={rowIndex} colIndex={colIndex} />
+                            <Square board={board} currentPlayer={currentPlayer} cell={cell} rowIndex={rowIndex} colIndex={colIndex} />
                         )
                     });
                 })}
