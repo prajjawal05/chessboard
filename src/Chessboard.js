@@ -147,14 +147,24 @@ const pieceEligibility = {
     'Q': getQueenEligibility,
 }
 
+const pieceName = {
+    'P': 'Pawn',
+    'R': 'Rook',
+    'B': 'Bishop',
+    'H': 'Knight',
+    'K': 'King',
+    'Q': 'Queen',
+}
+
 
 const getEligibility = (board, rowIndex, colIndex, selectedRow, selectedCol, currentPlayer) => {
+    if (rowIndex == selectedRow && colIndex == selectedCol) return true;
     if (board[rowIndex][colIndex][0] == currentPlayer) return false;
     return pieceEligibility[board[selectedRow][selectedCol][1]](board, rowIndex, colIndex, selectedRow, selectedCol);
 }
 
 
-const Square = ({ board, currentPlayer, rowIndex, colIndex, selectedRow, selectedCol }) => {
+const Square = ({ board, currentPlayer, rowIndex, colIndex, selectedRow, selectedCol, onClick }) => {
     const [isEligibile, updatEligibility] = useState(true);
 
     const currentcell = board[rowIndex][colIndex];
@@ -168,7 +178,7 @@ const Square = ({ board, currentPlayer, rowIndex, colIndex, selectedRow, selecte
             }
             return;
         }
-        const eligibility = isEligibile(board, rowIndex, colIndex, selectedRow, selectedCol, currentPlayer);
+        const eligibility = getEligibility(board, rowIndex, colIndex, selectedRow, selectedCol, currentPlayer);
         updatEligibility(eligibility);
     }
 
@@ -176,8 +186,19 @@ const Square = ({ board, currentPlayer, rowIndex, colIndex, selectedRow, selecte
         updatEligibility(true);
     }
 
+    const handleClick = () => {
+        if (!isEligibile) return;
+        if (rowIndex == selectedRow && colIndex == selectedCol) {
+            onClick(null);
+        } else {
+            onClick([rowIndex, colIndex]);
+        }
+    }
+
     return (
-        <StyledSquare isEligibile={isEligibile} key={`${rowIndex} -${colIndex} `} rowIndex={rowIndex} colIndex={colIndex} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+        <StyledSquare
+            onClick={handleClick}
+            isEligibile={isEligibile} key={`${rowIndex} -${colIndex} `} rowIndex={rowIndex} colIndex={colIndex} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
             {currentcell !== 'E' &&
                 <Piece isKing={currentcell[1] === 'K'} isWhite={currentcell[0] == ('W')}>
                     {currentcell[1]}
@@ -194,13 +215,45 @@ const Board = () => {
     const [currentPlayer, updatePlayer] = useState('W');
     const [selectedPiece, updateSelectedPiece] = useState(null);
 
+    const handleClick = (newSelection) => {
+        if (newSelection == null) {
+            updateSelectedPiece(null);
+            return;
+        }
+
+        const updatedChessBoard = JSON.parse(JSON.stringify(board));
+
+        if (selectedPiece == null) {
+            updateSelectedPiece([...newSelection]);
+        } else {
+            const selectedRow = selectedPiece[0];
+            const selectedCol = selectedPiece[1];
+            updatedChessBoard[newSelection[0]][newSelection[1]] = updatedChessBoard[selectedRow][selectedCol];
+            updatedChessBoard[selectedRow][selectedCol] = 'E';
+            // board;
+            const rotatedBoard = updatedChessBoard.slice().reverse().map(row => row.slice().reverse());
+            updateBoard(rotatedBoard);
+            updatePlayer(curr => curr == 'W' ? 'B' : 'W');
+            updateSelectedPiece(null);
+        }
+    }
+
     return (
         <Container>
             <StyledBoard>
                 {board.map((row, rowIndex) => {
                     return row.map((cell, colIndex) => {
                         return (
-                            <Square board={board} currentPlayer={currentPlayer} cell={cell} rowIndex={rowIndex} colIndex={colIndex} />
+                            <Square
+                                board={board}
+                                currentPlayer={currentPlayer}
+                                cell={cell}
+                                rowIndex={rowIndex}
+                                colIndex={colIndex}
+                                selectedRow={selectedPiece?.[0]}
+                                selectedCol={selectedPiece?.[1]}
+                                onClick={handleClick}
+                            />
                         )
                     });
                 })}
@@ -209,25 +262,12 @@ const Board = () => {
                 <h1>Game Information</h1>
                 <p>Player {`${currentPlayer == 'W' ? 1 : 2}`} to move</p>
                 {selectedPiece &&
-                    <p>Selected Piece is {board[selectedPiece[0]][selectedPiece[1]]}</p>
+                    <p>Selected Piece is {pieceName[board[selectedPiece[0]][selectedPiece[1]][1]]}</p>
                 }
             </TextSection>
         </Container>
     )
 }
-
-// const Game = () => {
-//     return (
-//         <>
-//             <StyledGame>
-//                 Chess
-//                 <Board />
-
-//             </StyledGame>
-//         </>
-//     )
-// }
-
 
 
 export default Board;
